@@ -1,6 +1,6 @@
 
 # EPUB Makefile helper by djazz
-# https://gist.github.com/daniel-j/bc8a654673a7744607813b629c342792
+# https://github.com/daniel-j/epubmake
 # Do not run this makefile's jobs in parallel/multicore (-j)
 
 
