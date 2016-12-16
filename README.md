@@ -5,7 +5,7 @@ I created this tool as a companion to when I edit the epub in Sigil, but you can
 
 ## How to use
 
-Make sure you have the `make` command available. You also need `java` to be able to validate the ebook with [EpubCheck](https://github.com/idpf/epubcheck), `inotifywait` from inotify-tools and [Calibre](http://calibre-ebook.com/) for the tools `ebook-polish` and `ebook-view`.
+Make sure you have the `make` command and python3 with lxml installed available. You also need `java` to be able to validate the ebook with [EpubCheck](https://github.com/idpf/epubcheck), `inotifywait` from inotify-tools and [Calibre](http://calibre-ebook.com/) for the tools `ebook-polish` and `ebook-view`.
  - Copy your epub ebook and put it next to the Makefile and rename it to `current.epub`. This is a hardcoded name that the tool uses to read the book from.
  - Open a terminal and run `make extractcurrent`. This will populate `src/` with the contents of the ebook using `unzip`.
  - You can now validate the ebook. Run `make validate`. It first builds the epub into `build/` based on the contents of `src/` (same as `make build`). Then it downloads EpubCheck (only first time) and runs it on the ebook.

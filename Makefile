@@ -8,10 +8,12 @@
 CURRENTEPUB = current.epub
 SOURCE      = ./src/
 EPUBFILE    = ./build/ebook.epub
+KEPUBFILE    = ./build/ebook.kepub.epub
 KINDLEFILE  = ./build/ebook.mobi
 
 
-SOURCEFILES = $(shell find $(SOURCE) -print)
+SOURCEFILES = $(shell find $(SOURCE) | sort)
+XHTMLFILES = $(shell find $(SOURCE) -name '*.xhtml' | sort)
 
 EPUBCHECK = ./tools/epubcheck/epubcheck.jar
 KINDLEGEN = ./tools/kindlegen/kindlegen
@@ -21,7 +23,7 @@ EBOOKVIEWER := $(shell command -v ebook-viewer 2>&1)
 JAVA        := $(shell command -v java 2>&1)
 INOTIFYWAIT := $(shell command -v inotifywait 2>&1)
 
-EPUBCHECK_VERSION = 4.0.1
+EPUBCHECK_VERSION = 4.0.2
 # https://github.com/IDPF/epubcheck/releases
 EPUBCHECK_URL = https://github.com/IDPF/epubcheck/releases/download/v$(EPUBCHECK_VERSION)/epubcheck-$(EPUBCHECK_VERSION).zip
 # http://www.amazon.com/gp/feature.html?docId=1000765211
@@ -39,6 +41,18 @@ $(EPUBFILE): $(SOURCEFILES)
 	@rm -f "$(EPUBFILE)"
 	@cd "$(SOURCE)" && zip -Xr9D "../$(EPUBFILE)" mimetype .
 
+buildkepub: $(KEPUBFILE)
+$(KEPUBFILE): $(EPUBFILE) $(SOURCEFILES)
+	@echo "Building Kobo EPUB..."
+	@cp -f "$(EPUBFILE)" "$(KEPUBFILE)"
+	@for current in $(XHTMLFILES); do \
+		mkdir -p "$$(dirname "tmp/$$current")"; \
+		echo "Kepubifying $$current..."; \
+		./tools/kepubify.py "$$current" > "tmp/$$current"; \
+	done
+	@cd "tmp/$(SOURCE)" && zip -Xr9D "../../$(KEPUBFILE)" .
+	@rm -r "tmp/"
+
 buildkindle: $(KINDLEFILE)
 $(KINDLEFILE): $(EPUBFILE) $(KINDLEGEN)
 	@echo Building Kindle file...
@@ -47,7 +61,7 @@ $(KINDLEFILE): $(EPUBFILE) $(KINDLEGEN)
 
 $(EPUBCHECK):
 	@echo Downloading epubcheck...
-	@wget -O "epubcheck.zip" "$(EPUBCHECK_URL)" --quiet --show-progress
+	@curl -o "epubcheck.zip" -L "$(EPUBCHECK_URL)" --connect-timeout 30
 	@mkdir -p `dirname $(EPUBCHECK)`
 	@unzip -q epubcheck.zip
 	@rm -rf `dirname $(EPUBCHECK)`
@@ -56,7 +70,7 @@ $(EPUBCHECK):
 
 $(KINDLEGEN):
 	@echo Downloading kindlegen...
-	@wget -O "kindlegen.tar.gz" "$(KINDLEGEN_URL)" --quiet --show-progress
+	@curl -o "kindlegen.tar.gz" -L "$(KINDLEGEN_URL)" --connect-timeout 30
 	@mkdir -p `dirname $(KINDLEGEN)`
 	@tar -zxf kindlegen.tar.gz -C `dirname $(KINDLEGEN)`
 	@rm kindlegen.tar.gz
@@ -91,6 +105,7 @@ endif
 clean:
 	@echo Removing built EPUB...
 	rm -f "$(EPUBFILE)"
+	rm -f "$(KEPUBFILE)"
 	rm -f "$(KINDLEFILE)"
 	@# only remove dir if it's empty:
 	@(rmdir `dirname $(EPUBFILE)`; exit 0)

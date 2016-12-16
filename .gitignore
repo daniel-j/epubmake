@@ -1,3 +1,5 @@
 build/
-tools/
+tools/epubcheck/
+tools/kindlegen/
+tmp/
 current.epub
