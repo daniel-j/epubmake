@@ -3,6 +3,7 @@
 # https://github.com/daniel-j/epubmake
 # Do not run this makefile's jobs in parallel/multicore (-j)
 
+RELEASENAME = "Ebook %y%m%d"
 
 # you can modify these options
 CURRENTEPUB = current.epub
@@ -14,6 +15,7 @@ KINDLEFILE  = ./build/ebook.mobi
 
 SOURCEFILES = $(shell find $(SOURCE) | sort)
 XHTMLFILES = $(shell find $(SOURCE) -name '*.xhtml' | sort)
+PNGFILES = $(shell find $(SOURCE) -name '*.png' | sort)
 
 EPUBCHECK = ./tools/epubcheck/epubcheck.jar
 KINDLEGEN = ./tools/kindlegen/kindlegen
@@ -30,9 +32,9 @@ EPUBCHECK_URL = https://github.com/IDPF/epubcheck/releases/download/v$(EPUBCHECK
 KINDLEGEN_URL = http://kindlegen.s3.amazonaws.com/kindlegen_linux_2.6_i386_v2_9.tar.gz
 
 
-.PHONY: all clean validate build buildkindle extractcurrent watchcurrent release
+.PHONY: all clean validate build buildkepub buildkindle extractcurrent watchcurrent release publish
 all: build
-release: clean build validate compress buildkindle
+release: clean build validate buildkepub buildkindle
 
 build: $(EPUBFILE)
 $(EPUBFILE): $(SOURCEFILES)
@@ -51,12 +53,25 @@ $(KEPUBFILE): $(EPUBFILE) $(SOURCEFILES)
 		./tools/kepubify.py "$$current" > "tmp/$$current"; \
 	done
 	@cd "tmp/$(SOURCE)" && zip -Xr9D "../../$(KEPUBFILE)" .
-	@rm -r "tmp/"
+	@rm -rf "tmp/"
 
 buildkindle: $(KINDLEFILE)
 $(KINDLEFILE): $(EPUBFILE) $(KINDLEGEN)
 	@echo Building Kindle file...
-	@$(KINDLEGEN) "$(EPUBFILE)" -dont_append_source -c1 || exit 0 # -c1 means standard PalmDOC compression. -c2 takes too long but probably makes it even smaller.
+	@cp -f "$(EPUBFILE)" "$(KINDLEFILE).epub"
+	@for current in $(PNGFILES); do \
+		channels=$$(identify -format '%[channels]' "$$current"); \
+		if [[ "$$channels" == "graya" ]]; then \
+			mkdir -p "$$(dirname "tmp/$$current")"; \
+			echo "Converting $$current to RGB..."; \
+			convert "$$current" -colorspace rgb "tmp/$$current"; \
+		fi; \
+	done
+	@cd "tmp/$(SOURCE)" && zip -Xr9D "../../$(KINDLEFILE).epub" .
+	@rm -rf "tmp/"
+	@$(KINDLEGEN) "$(KINDLEFILE).epub" -dont_append_source -c1 || exit 0 # -c1 means standard PalmDOC compression. -c2 takes too long but probably makes it even smaller.
+	@rm -f "$(KINDLEFILE).epub"
+	@mv "$(KINDLEFILE).mobi" "$(KINDLEFILE)"
 
 
 $(EPUBCHECK):
@@ -85,12 +100,12 @@ else
 endif
 
 
-compress: $(EPUBFILE)
+optimize: $(EPUBFILE)
 ifndef EBOOKPOLISH
 	@echo "Warning: Calibre was not found. Skipping compression."
 else
-	@echo "Subsetting fonts and compressing images. This may take a while..."
-	@ebook-polish --verbose --compress-images --subset-fonts "$(EPUBFILE)" "$(EPUBFILE)"
+	@echo "Compressing images. This may take a while..."
+	@ebook-polish --verbose --compress-images "$(EPUBFILE)" "$(EPUBFILE)"
 endif
 
 
@@ -130,3 +145,9 @@ endif
 		echo "Validating $(CURRENTEPUB)..."; \
 		$(JAVA) -jar "$(EPUBCHECK)" "$(CURRENTEPUB)"; \
 	done
+
+publish: $(EPUBFILE) $(KINDLEFILE) $(KEPUBFILE)
+	@mkdir -pv release
+	cp "$(EPUBFILE)" "release/$$(date +$(RELEASENAME)).epub"
+	cp "$(KEPUBFILE)" "release/$$(date +$(RELEASENAME)).kepub.epub"
+	cp "$(KINDLEFILE)" "release/$$(date +$(RELEASENAME)).mobi"
