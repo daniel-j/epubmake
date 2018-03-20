@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 # This code is from "KePub Output" Calibre plugin
 # http://www.mobileread.com/forums/showthread.php?t=220565

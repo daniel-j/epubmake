@@ -9,7 +9,8 @@ RELEASENAME = "Ebook %y%m%d"
 CURRENTEPUB = current.epub
 SOURCE      = ./src/
 EPUBFILE    = ./build/ebook.epub
-KEPUBFILE    = ./build/ebook.kepub.epub
+IBOOKSFILE  = ./build/ebook-ibooks.epub
+KEPUBFILE   = ./build/ebook.kepub.epub
 KINDLEFILE  = ./build/ebook.mobi
 
 
@@ -42,6 +43,10 @@ $(EPUBFILE): $(SOURCEFILES)
 	@mkdir -p `dirname $(EPUBFILE)`
 	@rm -f "$(EPUBFILE)"
 	@cd "$(SOURCE)" && zip -Xr9D "../$(EPUBFILE)" mimetype .
+
+buildibooks: $(IBOOKSFILE)
+$(IBOOKSFILE): $(SOURCEFILES)
+	@tools/run-sigil-plugin.sh tools/iBooksFix-sigil-plugin.py ./src "$(IBOOKSFILE)"
 
 buildkepub: $(KEPUBFILE)
 $(KEPUBFILE): $(EPUBFILE) $(SOURCEFILES)

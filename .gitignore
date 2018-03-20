@@ -3,3 +3,4 @@ tools/epubcheck/
 tools/kindlegen/
 tmp/
 current.epub
+__pycache__
