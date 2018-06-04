@@ -64,6 +64,7 @@ buildkindle: $(KINDLEFILE)
 $(KINDLEFILE): $(EPUBFILE) $(KINDLEGEN)
 	@echo Building Kindle file...
 	@cp -f "$(EPUBFILE)" "$(KINDLEFILE).epub"
+ifneq ($(PNGFILES),)
 	@for current in $(PNGFILES); do \
 		channels=$$(identify -format '%[channels]' "$$current"); \
 		if [[ "$$channels" == "graya" ]]; then \
@@ -74,6 +75,7 @@ $(KINDLEFILE): $(EPUBFILE) $(KINDLEGEN)
 	done
 	@cd "tmp/$(SOURCE)" && zip -Xr9D "../../$(KINDLEFILE).epub" .
 	@rm -rf "tmp/"
+endif
 	@$(KINDLEGEN) "$(KINDLEFILE).epub" -dont_append_source -c1 || exit 0 # -c1 means standard PalmDOC compression. -c2 takes too long but probably makes it even smaller.
 	@rm -f "$(KINDLEFILE).epub"
 	@mv "$(KINDLEFILE).mobi" "$(KINDLEFILE)"
