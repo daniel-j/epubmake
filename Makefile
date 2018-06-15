@@ -76,9 +76,10 @@ $(KEPUBFILE): $(EPUBFILE)
 # Kindle ebook files, try buildazw3, which uses Calibre's
 # ebook-convert tool.
 buildkindle: $(KINDLEFILE)
-$(KINDLEFILE): $(EPUBFILE) $(KINDLEGEN)
+$(KINDLEFILE): $(KINDLEFILE).epub $(KINDLEGEN)
 	@echo "Building Kindle ebook with KindleGen..."
-	@cp -f "$(EPUBFILE)" "$@.epub"
+	@$(KINDLEGEN) "$(KINDLEFILE).epub" -dont_append_source -c1 -o "$(@F)" || exit 0 # -c1 means standard PalmDOC compression. -c2 takes too long but probably makes it even smaller.
+$(KINDLEFILE).epub: $(EPUBFILE)
 ifdef PNGFILES
 	@for current in $(PNGFILES); do \
 		channels=$$(identify -format '%[channels]' "$$current"); \
@@ -88,12 +89,11 @@ ifdef PNGFILES
 			convert "$$current" -colorspace rgb "tmp/$$current"; \
 		fi; \
 	done
-	@cd "tmp/$(SOURCE)" && zip -Xr9D "$(CURDIR)/$@.epub" .
+	@cd "tmp/$(SOURCE)" && zip -Xr9D "$(CURDIR)/$@" .
 	@rm -rf "tmp/"
+else
+	@cp -f "$(EPUBFILE)" "$@"
 endif
-	@$(KINDLEGEN) "$@.epub" -dont_append_source -c1 || exit 0 # -c1 means standard PalmDOC compression. -c2 takes too long but probably makes it even smaller.
-	@rm -f "$@.epub"
-	@mv "$@.mobi" "$@"
 
 # Use Calibre to generate a Kindle ebook.
 buildazw3: $(AZW3FILE)
@@ -163,6 +163,7 @@ clean:
 	rm -f "$(EPUBFILE)"
 	rm -f "$(KEPUBFILE)"
 	rm -f "$(KINDLEFILE)"
+	rm -f "$(KINDLEFILE).epub"
 	rm -f "$(AZW3FILE)"
 	rm -f "$(IBOOKSFILE)"
 	@# only remove dir if it's empty:
