@@ -7,7 +7,7 @@ RELEASENAME := "Ebook %y%m%d"
 
 # you can modify these options
 CURRENTEPUB := current.epub
-SOURCE      := ./src/
+SOURCE      := ./src
 EPUBFILE    := ./build/ebook.epub
 IBOOKSFILE  := ./build/ebook-ibooks.epub
 KEPUBFILE   := ./build/ebook.kepub.epub
@@ -40,40 +40,46 @@ KINDLEGEN_URL = http://kindlegen.s3.amazonaws.com/kindlegen_linux_2.6_i386_v2_9.
 all: build
 
 # initializes the src directory
-init: src/
-src/:
-	@mkdir -pv src/{META-INF,OEBPS}
-	@echo -n "application/epub+zip" > src/mimetype
-	@echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n  <rootfiles>\n    <rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/>\n  </rootfiles>\n</container>" > src/META-INF/container.xml
-	@touch src/OEBPS/content.opf
+init: $(SOURCE)
+$(SOURCE): $(SOURCE)/mimetype $(SOURCE)/META-INF/container.xml $(SOURCE)/OEBPS/content.opf
+$(SOURCE)/mimetype:
+	@mkdir -pv $(@D)
+	@echo -n "application/epub+zip" > $@
+$(SOURCE)/META-INF/container.xml:
+	@mkdir -pv $(@D)
+	@echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n  <rootfiles>\n    <rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/>\n  </rootfiles>\n</container>" > $@
+$(SOURCE)/OEBPS/content.opf:
+	@mkdir -pv $(@D)
+	@touch $@
 
 build: $(EPUBFILE)
 $(EPUBFILE): $(SOURCEFILES)
 	@echo "Building EPUB ebook..."
-	@mkdir -p `dirname $(EPUBFILE)`
-	@rm -f "$(EPUBFILE)"
-	@cd "$(SOURCE)" && zip -Xr9D "../$(EPUBFILE)" mimetype .
+	@mkdir -p "$(@D)"
+	@rm -f "$@"
+	@cd "$(SOURCE)" && zip -Xr9D "$(CURDIR)/$@" mimetype .
 
 # For Kobo devices
 buildkepub: $(KEPUBFILE)
-$(KEPUBFILE): $(EPUBFILE) $(SOURCEFILES)
+$(KEPUBFILE): $(EPUBFILE)
 	@echo "Building Kobo EPUB ebook..."
-	@cp -f "$(EPUBFILE)" "$(KEPUBFILE)"
+	@cp -f "$(EPUBFILE)" "$@"
 	@for current in $(XHTMLFILES); do \
 		mkdir -p "$$(dirname "tmp/$$current")"; \
 		echo "Kepubifying $$current..."; \
 		./tools/kepubify.py "$$current" > "tmp/$$current"; \
 	done
-	@cd "tmp/$(SOURCE)" && zip -Xr9D "../../$(KEPUBFILE)" .
+	@cd "tmp/$(SOURCE)" && zip -Xr9D "$(CURDIR)/$@" .
 	@rm -rf "tmp/"
 
 # this uses Amazon's KindleGen utility. If you want smaller
 # Kindle ebook files, try buildazw3, which uses Calibre's
 # ebook-convert tool.
 buildkindle: $(KINDLEFILE)
-$(KINDLEFILE): $(EPUBFILE) $(KINDLEGEN)
+$(KINDLEFILE): $(KINDLEFILE).epub $(KINDLEGEN)
 	@echo "Building Kindle ebook with KindleGen..."
-	@cp -f "$(EPUBFILE)" "$(KINDLEFILE).epub"
+	@$(KINDLEGEN) "$(KINDLEFILE).epub" -dont_append_source -c1 -o "$(@F)" || exit 0 # -c1 means standard PalmDOC compression. -c2 takes too long but probably makes it even smaller.
+$(KINDLEFILE).epub: $(EPUBFILE)
 ifdef PNGFILES
 	@for current in $(PNGFILES); do \
 		channels=$$(identify -format '%[channels]' "$$current"); \
@@ -83,12 +89,11 @@ ifdef PNGFILES
 			convert "$$current" -colorspace rgb "tmp/$$current"; \
 		fi; \
 	done
-	@cd "tmp/$(SOURCE)" && zip -Xr9D "../../$(KINDLEFILE).epub" .
+	@cd "tmp/$(SOURCE)" && zip -Xr9D "$(CURDIR)/$@" .
 	@rm -rf "tmp/"
+else
+	@cp -f "$(EPUBFILE)" "$@"
 endif
-	@$(KINDLEGEN) "$(KINDLEFILE).epub" -dont_append_source -c1 || exit 0 # -c1 means standard PalmDOC compression. -c2 takes too long but probably makes it even smaller.
-	@rm -f "$(KINDLEFILE).epub"
-	@mv "$(KINDLEFILE).mobi" "$(KINDLEFILE)"
 
 # Use Calibre to generate a Kindle ebook.
 buildazw3: $(AZW3FILE)
@@ -98,30 +103,30 @@ ifndef EBOOKCONVERT
 	@exit 1
 else
 	@echo "Building Kindle AZW3 ebook with Calibre..."
-	ebook-convert "$(EPUBFILE)" "$(AZW3FILE)" --pretty-print --no-inline-toc --max-toc-links=0 --disable-font-rescaling
+	$(EBOOKCONVERT) "$(EPUBFILE)" "$@" --pretty-print --no-inline-toc --max-toc-links=0 --disable-font-rescaling
 endif
 
 # Fix for iBooks ToC on some devices. Requires Sigil.
 buildibooks: $(IBOOKSFILE)
 $(IBOOKSFILE): $(SOURCEFILES)
 	@echo "Building iBooks EPUB ebook..."
-	@tools/run-sigil-plugin.sh tools/iBooksFix-sigil-plugin.py ./src "$(IBOOKSFILE)"
+	@tools/run-sigil-plugin.sh tools/iBooksFix-sigil-plugin.py $(SOURCE) "$@"
 
 
 $(EPUBCHECK):
 	@echo Downloading epubcheck...
 	@curl -o "epubcheck.zip" -L "$(EPUBCHECK_URL)" --connect-timeout 30
-	@mkdir -p `dirname $(EPUBCHECK)`
+	@mkdir -p $(@D)
 	@unzip -q "epubcheck.zip"
-	@rm -rf `dirname $(EPUBCHECK)`
-	@mv "epubcheck-$(EPUBCHECK_VERSION)" "`dirname $(EPUBCHECK)`"
+	@rm -rf $(@D)
+	@mv "epubcheck-$(EPUBCHECK_VERSION)" "$(@D)"
 	@rm epubcheck.zip
 
 $(KINDLEGEN):
 	@echo Downloading kindlegen...
 	@curl -o "kindlegen.tar.gz" -L "$(KINDLEGEN_URL)" --connect-timeout 30
-	@mkdir -p `dirname $(KINDLEGEN)`
-	@tar -zxf "kindlegen.tar.gz" -C `dirname $(KINDLEGEN)`
+	@mkdir -p $(@D)
+	@tar -zxf "kindlegen.tar.gz" -C $(@D)
 	@rm "kindlegen.tar.gz"
 
 
@@ -158,6 +163,7 @@ clean:
 	rm -f "$(EPUBFILE)"
 	rm -f "$(KEPUBFILE)"
 	rm -f "$(KINDLEFILE)"
+	rm -f "$(KINDLEFILE).epub"
 	rm -f "$(AZW3FILE)"
 	rm -f "$(IBOOKSFILE)"
 	@# only remove dir if it's empty:
